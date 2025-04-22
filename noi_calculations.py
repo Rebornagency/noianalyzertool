@@ -1,10 +1,5 @@
-"""
-NOI Calculations Module for Streamlit App
-This module provides functions for calculating NOI comparisons between different periods.
-"""
-
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, List, Optional
 
 # Configure logging
 logging.basicConfig(
@@ -23,142 +18,63 @@ def calculate_noi_comparisons(consolidated_data: Dict[str, Optional[Dict[str, An
                            Values can be None if data is missing.
 
     Returns:
-        A dictionary containing comparison results for various metrics (revenue, expenses, NOI).
+        A dictionary containing comparison results for various metrics (EGI, Vacancy, OpEx, NOI).
     """
-    logger.info("Calculating NOI comparisons")
-    
-    # Extract data for each period
-    current_month = consolidated_data.get('current_month')
-    prior_month = consolidated_data.get('prior_month')
-    budget = consolidated_data.get('budget')
-    prior_year = consolidated_data.get('prior_year')
-    
-    # Initialize results dictionary
-    results = {
-        "current": {},
-        "month_vs_prior": {},
-        "actual_vs_budget": {},
-        "year_vs_year": {}
-    }
-    
-    # Function to calculate percent change safely
+    comparison_results = {}
+    current_data = consolidated_data.get("current_month")
+
+    # Store current month detailed data if available
+    if current_data:
+        comparison_results["current"] = current_data # Store the whole formatted dict
+
+    # --- Helper function for safe division ---
     def safe_percent_change(current, previous):
-        """Calculate percent change, handling division by zero"""
-        if previous is None or current is None:
-            return None
-        if previous == 0:
-            return 100.0 if current > 0 else -100.0 if current < 0 else 0.0
-        return ((current - previous) / abs(previous)) * 100.0
-    
-    # Current month metrics
-    if current_month:
-        results["current"] = {
-            "revenue": current_month.get("total_revenue", 0),
-            "expense": current_month.get("total_expenses", 0),
-            "noi": current_month.get("net_operating_income", 0)
-        }
-    
-    # Month vs Prior Month comparison
-    if current_month and prior_month:
-        current_revenue = current_month.get("total_revenue", 0)
-        prior_revenue = prior_month.get("total_revenue", 0)
-        revenue_change = current_revenue - prior_revenue
-        revenue_percent = safe_percent_change(current_revenue, prior_revenue)
-        
-        current_expense = current_month.get("total_expenses", 0)
-        prior_expense = prior_month.get("total_expenses", 0)
-        expense_change = current_expense - prior_expense
-        expense_percent = safe_percent_change(current_expense, prior_expense)
-        
-        current_noi = current_month.get("net_operating_income", 0)
-        prior_noi = prior_month.get("net_operating_income", 0)
-        noi_change = current_noi - prior_noi
-        noi_percent = safe_percent_change(current_noi, prior_noi)
-        
-        results["month_vs_prior"] = {
-            "revenue_current": current_revenue,
-            "revenue_prior": prior_revenue,
-            "revenue_change": revenue_change,
-            "revenue_percent_change": revenue_percent,
-            
-            "expense_current": current_expense,
-            "expense_prior": prior_expense,
-            "expense_change": expense_change,
-            "expense_percent_change": expense_percent,
-            
-            "noi_current": current_noi,
-            "noi_prior": prior_noi,
-            "noi_change": noi_change,
-            "noi_percent_change": noi_percent
-        }
-    
-    # Actual vs Budget comparison
-    if current_month and budget:
-        current_revenue = current_month.get("total_revenue", 0)
-        budget_revenue = budget.get("total_revenue", 0)
-        revenue_variance = current_revenue - budget_revenue
-        revenue_percent = safe_percent_change(current_revenue, budget_revenue)
-        
-        current_expense = current_month.get("total_expenses", 0)
-        budget_expense = budget.get("total_expenses", 0)
-        expense_variance = current_expense - budget_expense
-        expense_percent = safe_percent_change(current_expense, budget_expense)
-        
-        current_noi = current_month.get("net_operating_income", 0)
-        budget_noi = budget.get("net_operating_income", 0)
-        noi_variance = current_noi - budget_noi
-        noi_percent = safe_percent_change(current_noi, budget_noi)
-        
-        results["actual_vs_budget"] = {
-            "revenue_actual": current_revenue,
-            "revenue_budget": budget_revenue,
-            "revenue_variance": revenue_variance,
-            "revenue_percent_variance": revenue_percent,
-            
-            "expense_actual": current_expense,
-            "expense_budget": budget_expense,
-            "expense_variance": expense_variance,
-            "expense_percent_variance": expense_percent,
-            
-            "noi_actual": current_noi,
-            "noi_budget": budget_noi,
-            "noi_variance": noi_variance,
-            "noi_percent_variance": noi_percent
-        }
-    
-    # Year vs Prior Year comparison
-    if current_month and prior_year:
-        current_revenue = current_month.get("total_revenue", 0)
-        prior_revenue = prior_year.get("total_revenue", 0)
-        revenue_change = current_revenue - prior_revenue
-        revenue_percent = safe_percent_change(current_revenue, prior_revenue)
-        
-        current_expense = current_month.get("total_expenses", 0)
-        prior_expense = prior_year.get("total_expenses", 0)
-        expense_change = current_expense - prior_expense
-        expense_percent = safe_percent_change(current_expense, prior_expense)
-        
-        current_noi = current_month.get("net_operating_income", 0)
-        prior_noi = prior_year.get("net_operating_income", 0)
-        noi_change = current_noi - prior_noi
-        noi_percent = safe_percent_change(current_noi, prior_noi)
-        
-        results["year_vs_year"] = {
-            "revenue_current": current_revenue,
-            "revenue_prior_year": prior_revenue,
-            "revenue_change": revenue_change,
-            "revenue_percent_change": revenue_percent,
-            
-            "expense_current": current_expense,
-            "expense_prior_year": prior_expense,
-            "expense_change": expense_change,
-            "expense_percent_change": expense_percent,
-            
-            "noi_current": current_noi,
-            "noi_prior_year": prior_noi,
-            "noi_change": noi_change,
-            "noi_percent_change": noi_percent
-        }
-    
-    logger.info("NOI comparisons calculated successfully")
-    return results
+        if previous is None or previous == 0:
+            return 0.0 # Avoid division by zero
+        # Handle None for current value
+        current_val = current if current is not None else 0.0
+        return ((current_val - previous) / previous) * 100
+
+    # --- Calculate Month vs Prior Month Comparison ---
+    prior_month_data = consolidated_data.get("prior_month")
+    if current_data and prior_month_data:
+        mom = {}
+        # Compare key metrics
+        for key in ["gpr", "vacancy_loss", "other_income", "egi", "opex", "noi"]:
+            current_val = current_data.get(key, 0.0)
+            prior_val = prior_month_data.get(key, 0.0)
+            mom[f"{key}_prior"] = prior_val
+            mom[f"{key}_change"] = current_val - prior_val
+            mom[f"{key}_percent_change"] = safe_percent_change(current_val, prior_val)
+        comparison_results["month_vs_prior"] = mom
+
+    # --- Calculate Actual vs Budget Comparison ---
+    budget_data = consolidated_data.get("budget")
+    if current_data and budget_data:
+        avb = {}
+        # Compare key metrics
+        for key in ["gpr", "vacancy_loss", "other_income", "egi", "opex", "noi"]:
+            actual_val = current_data.get(key, 0.0)
+            budget_val = budget_data.get(key, 0.0)
+            avb[f"{key}_budget"] = budget_val
+            avb[f"{key}_variance"] = actual_val - budget_val
+            # Note: Variance % for expenses often inverted (lower is better) - handle in display
+            avb[f"{key}_percent_variance"] = safe_percent_change(actual_val, budget_val)
+        comparison_results["actual_vs_budget"] = avb
+
+    # --- Calculate Actual vs Prior Year Comparison ---
+    prior_year_data = consolidated_data.get("prior_year")
+    if current_data and prior_year_data:
+        yoy = {}
+        # Compare key metrics
+        for key in ["gpr", "vacancy_loss", "other_income", "egi", "opex", "noi"]:
+            current_val = current_data.get(key, 0.0)
+            prior_val = prior_year_data.get(key, 0.0)
+            yoy[f"{key}_prior_year"] = prior_val
+            yoy[f"{key}_change"] = current_val - prior_val
+            yoy[f"{key}_percent_change"] = safe_percent_change(current_val, prior_val)
+        comparison_results["year_vs_year"] = yoy
+
+    logger.info(f"Calculated detailed comparisons: {list(comparison_results.keys())}")
+    # logger.debug(f"Comparison results structure: {json.dumps(comparison_results, default=str)}")
+    return comparison_results

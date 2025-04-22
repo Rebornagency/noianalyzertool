@@ -1,0 +1,156 @@
+/* Custom CSS for Reborn NOI Analyzer */
+
+/* Main container and background */
+.main {
+    background-color: #0d1117;
+    color: #ffffff;
+}
+
+/* Headers */
+h1, h2, h3, h4, h5, h6 {
+    color: #ffffff;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+}
+
+/* Logo container */
+.header-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0px;
+}
+
+.logo-container {
+    margin-right: 15px;
+}
+
+/* Input fields styling */
+input[type="text"] {
+    background-color: #1a1f29;
+    color: #ffffff;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+/* File uploader styling */
+.st-c7 {
+    background-color: #1a1f29;
+    border: 1px dashed #30363d;
+    border-radius: 8px;
+    padding: 20px;
+}
+
+/* Button styling */
+.stButton>button {
+    background-color: #0e4de3;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-weight: 500;
+    transition: all 0.3s;
+}
+
+.stButton>button:hover {
+    background-color: #1c5cf5;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Checkbox styling */
+.stCheckbox>div {
+    color: #ffffff;
+}
+
+/* Typography */
+body {
+    font-family: 'Inter', sans-serif;
+    color: #ffffff;
+}
+
+p, div {
+    color: #c9d1d9;
+}
+
+/* Section labels */
+.section-label {
+    font-weight: 500;
+    color: #c9d1d9;
+    margin-bottom: 8px;
+}
+
+/* File upload area */
+.upload-area {
+    background-color: #1a1f29;
+    border: 1px dashed #30363d;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+}
+
+/* Primary action button */
+.primary-button {
+    background-color: #0e4de3;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-weight: 500;
+}
+
+/* Document type label */
+.document-label {
+    background-color: #1a1f29;
+    padding: 10px;
+    border-radius: 8px 8px 0 0;
+    margin-bottom: 0;
+}
+
+/* Card styling */
+.card {
+    background-color: #1a1f29;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+/* Sidebar styling */
+.css-1d391kg {
+    background-color: #161b22;
+}
+
+/* Custom widget styling */
+.widget-label {
+    font-weight: 500;
+    color: #c9d1d9;
+}
+
+/* Text field styling */
+div[data-baseweb="input"] {
+    background-color: #1a1f29;
+}
+
+/* Chart area styling */
+.stPlotlyChart {
+    background-color: #1a1f29;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+/* Table styling */
+.stDataFrame {
+    background-color: #1a1f29;
+}
+
+/* Expander styling */
+.streamlit-expanderHeader {
+    background-color: #1a1f29;
+    border-radius: 8px;
+}
+
+/* Dark mode specific adjustments */
+@media (prefers-color-scheme: dark) {
+    .stApp {
+        background-color: #0d1117;
+    }
+}

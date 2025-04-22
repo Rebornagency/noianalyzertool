@@ -1,0 +1,42 @@
+nohup: ignoring input
+
+Collecting usage statistics. To deactivate, set browser.gatherUsageStats to False.
+
+
+  You can now view your Streamlit app in your browser.
+
+  URL: http://0.0.0.0:8501
+
+2025-04-20 09:04:09,123 - noi_analyzer - INFO - Extracting data from Actual_Mar_2025.xlsx using API: https://dataextractionai.onrender.com/extract
+2025-04-20 09:04:09,126 - noi_analyzer - INFO - Sending request to https://dataextractionai.onrender.com/extract with API key in headers and params
+2025-04-20 09:04:18,629 - noi_analyzer - INFO - Successfully extracted data from Actual_Mar_2025.xlsx
+2025-04-20 09:04:18,632 - noi_analyzer - INFO - API returned a list response, extracting financials from first item
+2025-04-20 09:04:18,634 - noi_analyzer - INFO - Extracting data from Actual_Feb_2025.xlsx using API: https://dataextractionai.onrender.com/extract
+2025-04-20 09:04:18,636 - noi_analyzer - INFO - Sending request to https://dataextractionai.onrender.com/extract with API key in headers and params
+2025-04-20 09:04:28,065 - noi_analyzer - INFO - Successfully extracted data from Actual_Feb_2025.xlsx
+2025-04-20 09:04:28,068 - noi_analyzer - INFO - API returned a list response, extracting financials from first item
+2025-04-20 09:04:28,069 - noi_analyzer - INFO - Extracting data from Budget_Mar_2025.xlsx using API: https://dataextractionai.onrender.com/extract
+2025-04-20 09:04:28,071 - noi_analyzer - INFO - Sending request to https://dataextractionai.onrender.com/extract with API key in headers and params
+2025-04-20 09:04:35,235 - noi_analyzer - INFO - Successfully extracted data from Budget_Mar_2025.xlsx
+2025-04-20 09:04:35,238 - noi_analyzer - INFO - API returned a list response, extracting financials from first item
+2025-04-20 09:04:35,239 - noi_analyzer - INFO - Extracting data from Actual_Mar_2024.xlsx using API: https://dataextractionai.onrender.com/extract
+2025-04-20 09:04:35,241 - noi_analyzer - INFO - Sending request to https://dataextractionai.onrender.com/extract with API key in headers and params
+2025-04-20 09:04:43,788 - noi_analyzer - INFO - Successfully extracted data from Actual_Mar_2024.xlsx
+2025-04-20 09:04:43,790 - noi_analyzer - INFO - API returned a list response, extracting financials from first item
+2025-04-20 09:04:44,510 - ai_insights_gpt - INFO - Generating professional insights with GPT for property: 1
+2025-04-20 09:04:44,510 - ai_insights_gpt - INFO - Using OpenAI API key: sk-pr...Q1uwA
+2025-04-20 09:04:44,601 - ai_insights_gpt - INFO - Sending prompt to GPT API: 
+    You are a senior real estate accountant analyzing Net Operating Income (NOI) for a property.
+  ...
+2025-04-20 09:05:00,049 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-04-20 09:05:00,057 - ai_insights_gpt - INFO - Received response from GPT API: **EXECUTIVE SUMMARY**
+
+The property's financial performance shows a mixed scenario. While the curren...
+2025-04-20 09:05:00,057 - ai_insights_gpt - INFO - Parsing GPT response: **EXECUTIVE SUMMARY**
+
+The property's financial performance shows a mixed scenario. While the curren...
+2025-04-20 09:05:00,058 - ai_insights_gpt - INFO - Parsed insights: summary=The property's financial performance shows a mixed..., performance=3 items, recommendations=2 items
+2025-04-20 09:05:00.059 Please replace `st.experimental_rerun` with `st.rerun`.
+
+`st.experimental_rerun` will be removed after 2024-04-01.
+2025-04-20 09:05:00,457 - insights_display - INFO - Displaying insights for property: 1

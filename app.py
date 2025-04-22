@@ -1,555 +1,309 @@
-"""
-NOI Analyzer - Main Streamlit Application
-This application analyzes Net Operating Income (NOI) from financial documents,
-providing detailed metrics, visualizations, and AI-powered insights.
-"""
-
 import streamlit as st
 import pandas as pd
+import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import logging
-import os
-import sys
 from datetime import datetime
-from typing import Dict, Any, List, Optional
-import base64
+from typing import Dict, Any, Optional
 
-# Import custom modules
-from noi_tool_batch_integration import process_multiple_documents_batch
+# Import modules
+from config import get_openai_api_key, get_extraction_api_url, get_api_key
 from noi_calculations import calculate_noi_comparisons
 from ai_insights_gpt import generate_insights_with_gpt
 from insights_display import display_insights
-from static.reborn_logo import get_reborn_logo_base64
+from noi_tool_batch_integration import process_all_documents
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("noi_analyzer.log"),
+        logging.FileHandler("noi_analyzer_enhanced.log"),
         logging.StreamHandler()
     ]
 )
-logger = logging.getLogger('noi_analyzer')
+logger = logging.getLogger('app')
 
-# Set page configuration
+# Set page config
 st.set_page_config(
-    page_title="Reborn NOI Analyzer",
+    page_title="NOI Analyzer Enhanced",
     page_icon="📊",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
-# Load CSS
-def load_css():
-    with open(os.path.join("static", "style.css")) as f:
-        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
-
-# Apply CSS
-load_css()
-
-# Display Reborn logo
-def display_logo():
-    logo_base64 = get_reborn_logo_base64()
-    logo_html = f"""
-    <div class="header-container">
-        <div class="logo-container">
-            <img src="data:image/png;base64,{logo_base64}" width="120">
-        </div>
-    </div>
-    """
-    st.markdown(logo_html, unsafe_allow_html=True)
-
-def initialize_session_state():
-    """Initialize session state variables"""
-    if 'current_month_actuals' not in st.session_state:
-        st.session_state.current_month_actuals = None
-    if 'prior_month_actuals' not in st.session_state:
-        st.session_state.prior_month_actuals = None
-    if 'current_month_budget' not in st.session_state:
-        st.session_state.current_month_budget = None
-    if 'prior_year_actuals' not in st.session_state:
-        st.session_state.prior_year_actuals = None
-    if 'consolidated_data' not in st.session_state:
-        st.session_state.consolidated_data = None
-    if 'processing_completed' not in st.session_state:
-        st.session_state.processing_completed = False
-    if 'comparison_results' not in st.session_state:
-        st.session_state.comparison_results = None
-    if 'insights' not in st.session_state:
-        st.session_state.insights = None
-    if 'property_name' not in st.session_state:
-        st.session_state.property_name = ""
-    if 'use_example_data' not in st.session_state:
-        st.session_state.use_example_data = False
-    if 'current_page' not in st.session_state:
-        st.session_state.current_page = "upload"
-
-def reset_session_state():
-    """Reset session state variables"""
+# Initialize session state variables if they don't exist
+if 'current_month_actuals' not in st.session_state:
     st.session_state.current_month_actuals = None
+if 'prior_month_actuals' not in st.session_state:
     st.session_state.prior_month_actuals = None
+if 'current_month_budget' not in st.session_state:
     st.session_state.current_month_budget = None
+if 'prior_year_actuals' not in st.session_state:
     st.session_state.prior_year_actuals = None
+if 'consolidated_data' not in st.session_state:
     st.session_state.consolidated_data = None
+if 'processing_completed' not in st.session_state:
     st.session_state.processing_completed = False
+if 'comparison_results' not in st.session_state:
     st.session_state.comparison_results = None
+if 'insights' not in st.session_state:
     st.session_state.insights = None
-    st.session_state.current_page = "upload"
-    st.rerun()
 
-def display_upload_page():
-    """Display the styled upload page based on the provided design"""
-    # Display logo
-    display_logo()
-    
-    st.markdown("<h1 style='font-size: 3.5rem; font-weight: 500; margin-bottom: 1rem;'>Upload Financial Documents</h1>", unsafe_allow_html=True)
-    
-    # Property Name input
-    st.markdown("<p style='font-size: 1.2rem; margin-bottom: 0.5rem;'>Property Name</p>", unsafe_allow_html=True)
-    st.session_state.property_name = st.text_input("", value=st.session_state.property_name, label_visibility="collapsed")
-    
-    # Use example documents checkbox
-    st.checkbox("Use example documents", key="use_example_data")
-    
-    st.markdown("<h2 style='font-size: 1.8rem; margin-top: 2rem; margin-bottom: 1rem;'>Upload Required Documents</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='font-size: 1.1rem; margin-bottom: 2rem;'>To analyze NOI, please provide multiple documents</p>", unsafe_allow_html=True)
+def display_noi_comparisons(comparison_results: Dict[str, Any]):
+    """
+    Display DETAILED NOI comparisons in the Streamlit app.
 
-    # Current Month Actuals upload (required)
-    st.markdown("<div class='document-label'><span style='display: flex; align-items: center;'><span style='font-size: 1.3rem; margin-right: 10px;'>📄</span> Current Month Actuals</span></div>", unsafe_allow_html=True)
-    st.session_state.current_month_actuals = st.file_uploader(
-        "Upload Current Month Actuals (Required)",
-        type=["pdf", "xlsx", "xls", "csv", "txt"],
-        key="current_month_actuals_uploader",
-        label_visibility="collapsed"
-    )
-    
-    # Prior Month Actuals upload (optional)
-    st.markdown("<div class='document-label'><span style='display: flex; align-items: center;'><span style='font-size: 1.3rem; margin-right: 10px;'>📄</span> Prior Month Actuals</span></div>", unsafe_allow_html=True)
-    st.session_state.prior_month_actuals = st.file_uploader(
-        "Upload Prior Month Actuals (Optional)",
-        type=["pdf", "xlsx", "xls", "csv", "txt"],
-        key="prior_month_actuals_uploader",
-        label_visibility="collapsed"
-    )
-    
-    # Current Month Budget upload (optional)
-    st.markdown("<div class='document-label'><span style='display: flex; align-items: center;'><span style='font-size: 1.3rem; margin-right: 10px;'>📄</span> Current Month Budget</span></div>", unsafe_allow_html=True)
-    st.session_state.current_month_budget = st.file_uploader(
-        "Upload Current Month Budget (Optional)",
-        type=["pdf", "xlsx", "xls", "csv", "txt"],
-        key="current_month_budget_uploader",
-        label_visibility="collapsed"
-    )
-    
-    # Prior Year Actuals upload (optional)
-    st.markdown("<div class='document-label'><span style='display: flex; align-items: center;'><span style='font-size: 1.3rem; margin-right: 10px;'>📄</span> Prior Year Actuals</span></div>", unsafe_allow_html=True)
-    st.session_state.prior_year_actuals = st.file_uploader(
-        "Upload Prior Year Actuals (Optional)",
-        type=["pdf", "xlsx", "xls", "csv", "txt"],
-        key="prior_year_actuals_uploader",
-        label_visibility="collapsed"
-    )
-    
-    # Calculate NOI button
-    col1, col2, col3 = st.columns([2, 1, 2])
-    with col2:
-        calculate_button = st.button(
-            "Calculate NOI", 
-            type="primary", 
-            disabled=not st.session_state.current_month_actuals and not st.session_state.use_example_data
-        )
-    
-    if calculate_button:
-        if st.session_state.use_example_data:
-            # Use example data logic here
-            st.info("Using example data for demonstration purposes.")
-            process_documents()
-        elif st.session_state.current_month_actuals:
-            with st.spinner("Processing documents..."):
-                process_documents()
-        else:
-            st.error("Please upload Current Month Actuals document or use example data.")
+    Args:
+        comparison_results: Results from calculate_noi_comparisons() using detailed data.
+    """
 
-def process_documents():
-    """Process uploaded documents and store results in session state"""
-    try:
-        # Prepare list of files and document type mapping
-        files = []
-        document_types = {}
-        
-        if st.session_state.current_month_actuals:
-            files.append(st.session_state.current_month_actuals)
-            document_types[st.session_state.current_month_actuals.name] = "current_month_actuals"
-            
-        if st.session_state.prior_month_actuals:
-            files.append(st.session_state.prior_month_actuals)
-            document_types[st.session_state.prior_month_actuals.name] = "prior_month_actuals"
-            
-        if st.session_state.current_month_budget:
-            files.append(st.session_state.current_month_budget)
-            document_types[st.session_state.current_month_budget.name] = "current_month_budget"
-            
-        if st.session_state.prior_year_actuals:
-            files.append(st.session_state.prior_year_actuals)
-            document_types[st.session_state.prior_year_actuals.name] = "prior_year_actuals"
-        
-        # Process documents in batch
-        result = process_multiple_documents_batch(
-            files=files,
-            property_name=st.session_state.property_name,
-            document_types=document_types
-        )
-        
-        if result.get("success", False):
-            st.session_state.consolidated_data = result.get("consolidated_data", {})
-            st.session_state.comparison_results = result.get("comparison_results", {})
-            st.session_state.processing_completed = True
-            
-            # Generate insights if we have comparison results
-            if st.session_state.comparison_results:
-                with st.spinner("Generating AI insights..."):
-                    st.session_state.insights = generate_insights_with_gpt(
-                        st.session_state.comparison_results,
-                        property_name=st.session_state.property_name
-                    )
-            
-            st.success("Documents processed successfully!")
-            st.session_state.current_page = "results"
-            st.rerun()
-        else:
-            st.error(f"Failed to process documents: {result.get('error', 'Unknown error')}")
-            st.session_state.processing_completed = False
-    except Exception as e:
-        logger.error(f"Error processing documents: {str(e)}")
-        st.error(f"Error processing documents: {str(e)}")
-        st.session_state.processing_completed = False
-
-def display_results():
-    """Display the results of the NOI analysis"""
-    # Display logo
-    display_logo()
-    
-    st.markdown("<h1 style='font-size: 2.5rem; font-weight: 500; margin-bottom: 1rem;'>NOI Analysis Results</h1>", unsafe_allow_html=True)
-    
-    if st.session_state.property_name:
-        st.markdown(f"<h2 style='font-size: 1.8rem; margin-bottom: 2rem;'>Property: {st.session_state.property_name}</h2>", unsafe_allow_html=True)
-    
-    # Display tabs for different sections
-    tab1, tab2, tab3 = st.tabs([
-        "Summary Metrics", 
-        "Detailed Comparisons", 
-        "AI Insights"
-    ])
-    
-    with tab1:
-        display_summary_metrics()
-    
-    with tab2:
-        display_detailed_comparisons()
-    
-    with tab3:
-        if st.session_state.insights:
-            display_insights(st.session_state.insights, st.session_state.property_name)
-        else:
-            st.info("AI insights are not available. Please make sure you have processed all necessary documents.")
-    
-    # Add a button to go back to the upload page
-    col1, col2, col3 = st.columns([2, 1, 2])
-    with col2:
-        if st.button("Analyze New Property", type="primary"):
-            reset_session_state()
-
-def display_summary_metrics():
-    """Display summary metrics and visualizations"""
-    results = st.session_state.comparison_results
-    current_data = results.get("current", {})
-    
+    current_data = comparison_results.get("current")
     if not current_data:
-        st.warning("No current month data available for summary metrics.")
+        st.warning("No current month data available to display comparisons.")
         return
-    
-    # Create a dashboard with summary metrics
-    st.subheader("Current Month Overview")
-    
-    # Key financial metrics
-    col1, col2, col3 = st.columns(3)
-    
+
+    st.header("Financial Performance Overview")
+
+    # --- Key Metrics Section ---
+    st.subheader("Key Performance Indicators (Current Period)")
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric(
-            label="Total Revenue",
-            value=f"${current_data.get('revenue', 0):,.2f}"
-        )
-    
+        st.metric("Eff. Gross Income (EGI)", f"${current_data.get('egi', 0):,.2f}")
     with col2:
-        st.metric(
-            label="Total Expenses",
-            value=f"${current_data.get('expense', 0):,.2f}"
-        )
-    
+        # Calculate Vacancy Rate = Vacancy Loss / GPR (handle division by zero)
+        gpr = current_data.get('gpr', 0)
+        vacancy_loss = current_data.get('vacancy_loss', 0)
+        vacancy_rate = (vacancy_loss / gpr * 100) if gpr else 0
+        st.metric("Vacancy & Credit Loss %", f"{vacancy_rate:.1f}%", f"-${vacancy_loss:,.2f}", delta_color="inverse")
     with col3:
-        st.metric(
-            label="NOI",
-            value=f"${current_data.get('noi', 0):,.2f}"
+        # Calculate OpEx Ratio = Total OpEx / EGI (handle division by zero)
+        egi = current_data.get('egi', 0)
+        opex = current_data.get('opex', 0)
+        opex_ratio = (opex / egi * 100) if egi else 0
+        st.metric("Operating Expense Ratio", f"{opex_ratio:.1f}%", f"${opex:,.2f}", delta_color="inverse")
+    with col4:
+        st.metric("Net Operating Income (NOI)", f"${current_data.get('noi', 0):,.2f}")
+
+    st.markdown("---")
+
+    # --- Comparison Tabs ---
+    st.header("Comparative Analysis")
+    tab_titles = ["Current vs Budget", "Current vs Prior Year", "Current vs Prior Month"]
+    tabs = st.tabs(tab_titles)
+
+    # Helper to display comparison metrics
+    def display_comparison_tab(tab_data, prior_key_suffix, name_suffix):
+        if not tab_data:
+            st.info(f"No {name_suffix} data available for comparison.")
+            return
+
+        st.subheader(f"Current vs {name_suffix}")
+        metrics = ["GPR", "Vacancy Loss", "Other Income", "EGI", "Total OpEx", "NOI"]
+        data_keys = ["gpr", "vacancy_loss", "other_income", "egi", "opex", "noi"]
+
+        df_data = []
+        for key, name in zip(data_keys, metrics):
+            current_val = current_data.get(key, 0.0)
+            prior_val = tab_data.get(f"{key}_{prior_key_suffix}", tab_data.get(f"{key}_budget", 0.0))
+            change_val = tab_data.get(f"{key}_change", tab_data.get(f"{key}_variance", 0.0))
+            percent_change = tab_data.get(f"{key}_percent_change", tab_data.get(f"{key}_percent_variance", 0.0))
+            df_data.append({
+                "Metric": name,
+                "Current": current_val,
+                name_suffix: prior_val,
+                "Change ($)": change_val,
+                "Change (%)": percent_change
+            })
+
+        # Create DataFrame for display
+        df = pd.DataFrame(df_data)
+        
+        # Format DataFrame for display
+        df_display = df.copy()
+        df_display["Current"] = df_display["Current"].apply(lambda x: f"${x:,.2f}")
+        df_display[name_suffix] = df_display[name_suffix].apply(lambda x: f"${x:,.2f}")
+        df_display["Change ($)"] = df_display["Change ($)"].apply(lambda x: f"${x:,.2f}")
+        df_display["Change (%)"] = df_display["Change (%)"].apply(lambda x: f"{x:.1f}%")
+        
+        # Display table
+        st.dataframe(df_display, use_container_width=True)
+        
+        # Create bar chart for visual comparison
+        fig = go.Figure()
+        
+        # Add current period bars
+        fig.add_trace(go.Bar(
+            x=df["Metric"],
+            y=df["Current"],
+            name="Current",
+            marker_color='rgb(55, 83, 109)'
+        ))
+        
+        # Add comparison period bars
+        fig.add_trace(go.Bar(
+            x=df["Metric"],
+            y=df[name_suffix],
+            name=name_suffix,
+            marker_color='rgb(26, 118, 255)'
+        ))
+        
+        # Update layout
+        fig.update_layout(
+            title=f"Current vs {name_suffix} Comparison",
+            xaxis_tickfont_size=14,
+            yaxis=dict(
+                title='Amount ($)',
+                titlefont_size=16,
+                tickfont_size=14,
+            ),
+            legend=dict(
+                x=0,
+                y=1.0,
+                bgcolor='rgba(255, 255, 255, 0)',
+                bordercolor='rgba(255, 255, 255, 0)'
+            ),
+            barmode='group',
+            bargap=0.15,
+            bargroupgap=0.1
         )
-    
-    # Create a simple breakdown chart
-    st.subheader("Financial Breakdown")
-    
-    # Create data for visualization
-    data = {
-        "Category": ["Revenue", "Expenses", "NOI"],
-        "Amount": [
-            current_data.get("revenue", 0),
-            current_data.get("expense", 0),
-            current_data.get("noi", 0)
-        ]
-    }
-    
-    df = pd.DataFrame(data)
-    
-    # Create a bar chart
-    fig = px.bar(
-        df,
-        x="Category",
-        y="Amount",
-        color="Category",
-        color_discrete_map={
-            "Revenue": "#0e4de3",
-            "Expenses": "#4682B4",
-            "NOI": "#32CD32"
-        },
-        title="Current Month Financial Summary"
-    )
-    
-    fig.update_layout(
-        yaxis_title="Amount ($)",
-        xaxis_title="",
-        legend_title="Category",
-        height=400,
-        paper_bgcolor="#1a1f29",
-        plot_bgcolor="#1a1f29",
-        font=dict(color="#ffffff")
-    )
-    
-    # Add dollar formatting to y-axis
-    fig.update_yaxes(tickprefix="$", tickformat=",.0f", color="#ffffff")
-    fig.update_xaxes(color="#ffffff")
-    
-    st.plotly_chart(fig, use_container_width=True)
+        
+        # Display chart
+        st.plotly_chart(fig, use_container_width=True)
 
-def display_detailed_comparisons():
-    """Display detailed comparisons between periods"""
-    results = st.session_state.comparison_results
-    
-    # Check if we have comparison data
-    mom_data = results.get("month_vs_prior", {})
-    budget_data = results.get("actual_vs_budget", {})
-    yoy_data = results.get("year_vs_year", {})
-    
-    if not any([mom_data, budget_data, yoy_data]):
-        st.warning("No comparison data available. Please upload additional documents for comparison.")
-        return
-    
-    # Create tabs for different comparisons
-    tab1, tab2, tab3 = st.tabs([
-        "Month vs Prior Month", 
-        "Actual vs Budget", 
-        "Year vs Prior Year"
-    ])
-    
-    # Month vs Prior Month
-    with tab1:
-        if mom_data:
-            st.subheader("Current Month vs Prior Month")
-            
-            # Key metrics comparison
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                revenue_change = mom_data.get("revenue_change", 0)
-                revenue_pct = mom_data.get("revenue_percent_change", 0)
-                st.metric(
-                    label="Revenue Change",
-                    value=f"${revenue_change:,.2f}",
-                    delta=f"{revenue_pct:.2f}%"
-                )
-            
-            with col2:
-                expense_change = mom_data.get("expense_change", 0)
-                expense_pct = mom_data.get("expense_percent_change", 0)
-                st.metric(
-                    label="Expense Change",
-                    value=f"${expense_change:,.2f}",
-                    delta=f"{expense_pct:.2f}%",
-                    delta_color="inverse"  # Lower expenses are better
-                )
-            
-            with col3:
-                noi_change = mom_data.get("noi_change", 0)
-                noi_pct = mom_data.get("noi_percent_change", 0)
-                st.metric(
-                    label="NOI Change",
-                    value=f"${noi_change:,.2f}",
-                    delta=f"{noi_pct:.2f}%"
-                )
-            
-            # Create comparison chart
-            create_comparison_chart(
-                current_value=results.get("current", {}).get("noi", 0),
-                comparison_value=mom_data.get("noi_prior", 0),
-                title="NOI: Current Month vs Prior Month",
-                current_label="Current Month",
-                comparison_label="Prior Month"
-            )
-        else:
-            st.info("No prior month data available for comparison.")
-    
-    # Actual vs Budget
-    with tab2:
-        if budget_data:
-            st.subheader("Actual vs Budget")
-            
-            # Key metrics comparison
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                revenue_var = budget_data.get("revenue_variance", 0)
-                revenue_pct = budget_data.get("revenue_percent_variance", 0)
-                st.metric(
-                    label="Revenue Variance",
-                    value=f"${revenue_var:,.2f}",
-                    delta=f"{revenue_pct:.2f}%"
-                )
-            
-            with col2:
-                expense_var = budget_data.get("expense_variance", 0)
-                expense_pct = budget_data.get("expense_percent_variance", 0)
-                st.metric(
-                    label="Expense Variance",
-                    value=f"${expense_var:,.2f}",
-                    delta=f"{expense_pct:.2f}%",
-                    delta_color="inverse"  # Lower expenses are better
-                )
-            
-            with col3:
-                noi_var = budget_data.get("noi_variance", 0)
-                noi_pct = budget_data.get("noi_percent_variance", 0)
-                st.metric(
-                    label="NOI Variance",
-                    value=f"${noi_var:,.2f}",
-                    delta=f"{noi_pct:.2f}%"
-                )
-            
-            # Create comparison chart
-            create_comparison_chart(
-                current_value=results.get("current", {}).get("noi", 0),
-                comparison_value=budget_data.get("noi_budget", 0),
-                title="NOI: Actual vs Budget",
-                current_label="Actual",
-                comparison_label="Budget"
-            )
-        else:
-            st.info("No budget data available for comparison.")
-    
-    # Year vs Prior Year
-    with tab3:
-        if yoy_data:
-            st.subheader("Current Year vs Prior Year")
-            
-            # Key metrics comparison
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                revenue_change = yoy_data.get("revenue_change", 0)
-                revenue_pct = yoy_data.get("revenue_percent_change", 0)
-                st.metric(
-                    label="Revenue YoY Change",
-                    value=f"${revenue_change:,.2f}",
-                    delta=f"{revenue_pct:.2f}%"
-                )
-            
-            with col2:
-                expense_change = yoy_data.get("expense_change", 0)
-                expense_pct = yoy_data.get("expense_percent_change", 0)
-                st.metric(
-                    label="Expense YoY Change",
-                    value=f"${expense_change:,.2f}",
-                    delta=f"{expense_pct:.2f}%",
-                    delta_color="inverse"  # Lower expenses are better
-                )
-            
-            with col3:
-                noi_change = yoy_data.get("noi_change", 0)
-                noi_pct = yoy_data.get("noi_percent_change", 0)
-                st.metric(
-                    label="NOI YoY Change",
-                    value=f"${noi_change:,.2f}",
-                    delta=f"{noi_pct:.2f}%"
-                )
-            
-            # Create comparison chart
-            create_comparison_chart(
-                current_value=results.get("current", {}).get("noi", 0),
-                comparison_value=yoy_data.get("noi_prior_year", 0),
-                title="NOI: Current Year vs Prior Year",
-                current_label="Current Year",
-                comparison_label="Prior Year"
-            )
-        else:
-            st.info("No prior year data available for comparison.")
-
-def create_comparison_chart(current_value, comparison_value, title, current_label, comparison_label):
-    """Create a comparison chart for two values"""
-    
-    # Create data for bar chart
-    data = {
-        "Category": [current_label, comparison_label],
-        "NOI": [current_value, comparison_value]
-    }
-    
-    df = pd.DataFrame(data)
-    
-    # Create a bar chart
-    fig = px.bar(
-        df,
-        x="Category",
-        y="NOI",
-        color="Category",
-        color_discrete_map={
-            current_label: "#0e4de3",
-            comparison_label: "#4682B4"
-        },
-        title=title
-    )
-    
-    fig.update_layout(
-        yaxis_title="NOI ($)",
-        xaxis_title="",
-        legend_title="Period",
-        height=400,
-        paper_bgcolor="#1a1f29",
-        plot_bgcolor="#1a1f29",
-        font=dict(color="#ffffff")
-    )
-    
-    # Add dollar formatting to y-axis
-    fig.update_yaxes(tickprefix="$", tickformat=",.0f", color="#ffffff")
-    fig.update_xaxes(color="#ffffff")
-    
-    st.plotly_chart(fig, use_container_width=True)
+    # Display each comparison tab
+    with tabs[0]:  # Budget tab
+        avb = comparison_results.get("actual_vs_budget")
+        display_comparison_tab(avb, "budget", "Budget")
+        
+    with tabs[1]:  # Prior Year tab
+        yoy = comparison_results.get("year_vs_year")
+        display_comparison_tab(yoy, "prior_year", "Prior Year")
+        
+    with tabs[2]:  # Prior Month tab
+        mom = comparison_results.get("month_vs_prior")
+        display_comparison_tab(mom, "prior", "Prior Month")
 
 def main():
-    """Main application function"""
-    # Initialize session state
-    initialize_session_state()
+    # App title and description
+    st.title("NOI Analyzer Enhanced")
+    st.markdown("""
+    This application analyzes Net Operating Income (NOI) from financial documents, 
+    providing detailed comparisons and AI-generated insights.
+    """)
     
-    # Display the appropriate page based on the current state
-    if not st.session_state.processing_completed or st.session_state.current_page == "upload":
-        display_upload_page()
+    # Sidebar for file uploads and settings
+    with st.sidebar:
+        st.header("Document Upload")
+        st.markdown("Upload your financial documents for analysis.")
+        
+        # Current Month Actuals (Required)
+        st.subheader("Current Month Actuals (Required)")
+        current_month_actuals = st.file_uploader(
+            "Upload current month actuals",
+            type=["pdf", "xlsx", "xls", "csv"],
+            key="current_month_actuals_uploader"
+        )
+        if current_month_actuals:
+            st.session_state.current_month_actuals = current_month_actuals
+            st.success(f"✅ {current_month_actuals.name}")
+        
+        # Prior Month Actuals (Optional)
+        st.subheader("Prior Month Actuals (Optional)")
+        prior_month_actuals = st.file_uploader(
+            "Upload prior month actuals",
+            type=["pdf", "xlsx", "xls", "csv"],
+            key="prior_month_actuals_uploader"
+        )
+        if prior_month_actuals:
+            st.session_state.prior_month_actuals = prior_month_actuals
+            st.success(f"✅ {prior_month_actuals.name}")
+        
+        # Current Month Budget (Optional)
+        st.subheader("Current Month Budget (Optional)")
+        current_month_budget = st.file_uploader(
+            "Upload current month budget",
+            type=["pdf", "xlsx", "xls", "csv"],
+            key="current_month_budget_uploader"
+        )
+        if current_month_budget:
+            st.session_state.current_month_budget = current_month_budget
+            st.success(f"✅ {current_month_budget.name}")
+        
+        # Prior Year Actuals (Optional)
+        st.subheader("Prior Year Actuals (Optional)")
+        prior_year_actuals = st.file_uploader(
+            "Upload prior year actuals",
+            type=["pdf", "xlsx", "xls", "csv"],
+            key="prior_year_actuals_uploader"
+        )
+        if prior_year_actuals:
+            st.session_state.prior_year_actuals = prior_year_actuals
+            st.success(f"✅ {prior_year_actuals.name}")
+        
+        # Settings section
+        st.header("Settings")
+        property_name = st.text_input("Property Name (Optional)", "")
+        
+        # API Configuration
+        with st.expander("API Configuration"):
+            api_url = st.text_input("Extraction API URL", get_extraction_api_url())
+            api_key = st.text_input("API Key", get_api_key(), type="password")
+            openai_api_key = st.text_input("OpenAI API Key", get_openai_api_key(), type="password")
+        
+        # Process button
+        process_button = st.button("Process Documents")
+        if process_button:
+            if not st.session_state.current_month_actuals:
+                st.error("Current Month Actuals is required.")
+            else:
+                st.session_state.processing_completed = False
+                st.session_state.comparison_results = None
+                st.session_state.insights = None
+                
+                # Process documents
+                with st.spinner("Processing documents..."):
+                    consolidated_data = process_all_documents()
+                    
+                    # Calculate comparisons if processing was successful
+                    if st.session_state.processing_completed:
+                        st.session_state.comparison_results = calculate_noi_comparisons(consolidated_data)
+                        
+                        # Generate insights if OpenAI API key is provided
+                        if openai_api_key and len(openai_api_key) > 10:
+                            st.session_state.insights = generate_insights_with_gpt(
+                                st.session_state.comparison_results,
+                                property_name
+                            )
+                
+                # Rerun to update the main content area
+                st.rerun()
+    
+    # Main content area
+    if st.session_state.processing_completed and st.session_state.comparison_results:
+        # Display NOI comparisons
+        display_noi_comparisons(st.session_state.comparison_results)
+        
+        # Display AI insights if available
+        if st.session_state.insights:
+            display_insights(st.session_state.insights, property_name)
     else:
-        display_results()
+        # Display instructions when no data is processed
+        st.info("Upload your financial documents using the sidebar and click 'Process Documents' to begin analysis.")
+        
+        # Display sample images or instructions
+        st.markdown("""
+        ### How to use this tool:
+        
+        1. **Upload Documents**: Start by uploading your current month actuals (required). For more comprehensive analysis, also upload prior month actuals, budget, and prior year actuals.
+        
+        2. **Process Documents**: Click the 'Process Documents' button to extract and analyze the financial data.
+        
+        3. **Review Results**: Examine the comparative analysis and AI-generated insights to understand your property's financial performance.
+        
+        4. **Export or Share**: Use Streamlit's built-in options to download charts or share insights with your team.
+        """)
 
 if __name__ == "__main__":
     main()

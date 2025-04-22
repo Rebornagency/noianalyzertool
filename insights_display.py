@@ -10,81 +10,68 @@ logger = logging.getLogger('insights_display')
 
 def display_insights(insights, property_name=""):
     """
-    Display GPT-generated insights in the Streamlit UI with Reborn styling
+    Display GPT-generated insights in the Streamlit UI
+    (Assumes insights dict structure remains the same, content is richer)
     """
     logger.info(f"Displaying detailed insights for property: {property_name}")
 
-    # Create a container with styling matching Reborn design
-    st.markdown("""
-    <style>
-    .insights-container {
-        background-color: #1a1f29;
-        padding: 20px;
-        border-radius: 10px;
-        border-left: 6px solid #0e4de3;
-        margin-bottom: 25px;
-        box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
-    }
-    .insights-container h2 {
-        color: #ffffff;
-        margin-bottom: 15px;
-    }
-    .insights-container h3 {
-        color: #c9d1d9;
-        margin-top: 15px;
-        margin-bottom: 5px;
-    }
-    .insights-section {
-        margin-bottom: 20px;
-    }
-    .insight-point {
-        background-color: #0d1117;
-        padding: 10px 15px;
-        border-radius: 6px;
-        margin-bottom: 10px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    # Create a container with a distinctive background
+    with st.container():
+        st.markdown("""
+        <style>
+        .insights-container {
+            background-color: #f0f8ff; /* Light blue background */
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 6px solid #1E90FF; /* Dodger blue left border */
+            margin-bottom: 25px;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+        }
+        .insights-container h2 {
+            color: #1E90FF;
+            margin-bottom: 15px;
+        }
+        .insights-container h3 {
+            color: #4682B4; /* Steel blue subheaders */
+            margin-top: 15px;
+            margin-bottom: 5px;
+        }
+        </style>
+        """, unsafe_allow_html=True)
 
-    st.markdown(f"""
-    <div class="insights-container">
-    <h2>AI-Generated Financial Insights</h2>
-    """, unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="insights-container">
+        <h2>AI-Generated Financial Insights</h2>
+        """, unsafe_allow_html=True)
 
-    # Display the executive summary
-    st.markdown('<div class="insights-section">', unsafe_allow_html=True)
-    st.subheader("Executive Summary")
-    if insights and "summary" in insights and insights["summary"]:
-        st.markdown(f'<div class="insight-point">{insights["summary"]}</div>', unsafe_allow_html=True)
-    else:
-        st.info("No executive summary available.")
-    st.markdown('</div>', unsafe_allow_html=True)
+        # Display the executive summary
+        st.subheader("Executive Summary")
+        if insights and "summary" in insights and insights["summary"]:
+            st.markdown(insights["summary"]) # Use markdown for potential formatting
+        else:
+            st.info("No executive summary available.")
 
-    # Display performance insights
-    st.markdown('<div class="insights-section">', unsafe_allow_html=True)
-    st.subheader("Performance Analysis")
-    if insights and "performance" in insights and insights["performance"]:
-        for point in insights["performance"]:
-            st.markdown(f'<div class="insight-point">• {point}</div>', unsafe_allow_html=True)
-    else:
-        st.info("No performance analysis available.")
-    st.markdown('</div>', unsafe_allow_html=True)
+        # Display performance insights
+        st.subheader("Performance Analysis")
+        if insights and "performance" in insights and insights["performance"]:
+            for point in insights["performance"]:
+                st.markdown(f"• {point}")
+        else:
+            st.info("No performance analysis available.")
 
-    # Display recommendations
-    st.markdown('<div class="insights-section">', unsafe_allow_html=True)
-    st.subheader("Recommendations")
-    if insights and "recommendations" in insights and insights["recommendations"]:
-        for rec in insights["recommendations"]:
-            st.markdown(f'<div class="insight-point">• {rec}</div>', unsafe_allow_html=True)
-    else:
-        st.info("No recommendations available.")
-    st.markdown('</div>', unsafe_allow_html=True)
+        # Display recommendations
+        st.subheader("Recommendations")
+        if insights and "recommendations" in insights and insights["recommendations"]:
+            for rec in insights["recommendations"]:
+                st.markdown(f"• {rec}")
+        else:
+            st.info("No recommendations available.")
 
-    # Close the container div
-    st.markdown("</div>", unsafe_allow_html=True)
+        # Close the container div
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    # Add a divider
-    st.markdown("---")
+        # Add a divider
+        st.markdown("---")
 
-    # Add a note about AI generation
-    st.caption("These insights were generated by AI based on the detailed financial data provided.")
+        # Add a note about AI generation
+        st.caption("These insights were generated by AI based on the detailed financial data provided.")
