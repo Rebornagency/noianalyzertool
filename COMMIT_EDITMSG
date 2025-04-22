@@ -1,0 +1,7 @@
+Fixes a connection problem
+
+The commit modifies `config.py` and `noi_tool_batch_integration.py` to include the API key in request headers using both `x-api-key` and `Authorization` headers for backward compatibility.  It also adds a default API key to `config.py`.
+
+Replit-Commit-Author: Agent
+Replit-Commit-Session-Id: 04f74015-c48a-49a7-81f6-98063e4c582f
+Replit-Commit-Screenshot-Url: https://storage.googleapis.com/screenshot-production-us-central1/531ce78d-2eb7-40df-a57e-a15c8ad3c523/a4e11d58-f2c0-4ec3-a3b7-fc644a4cd357.jpg
